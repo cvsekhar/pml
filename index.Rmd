@@ -1,0 +1,134 @@
+---
+title: "Predicting class of exercise"
+author: "Vijay Chennupati"
+date: "03/20/2015"
+output: html_document
+---
+In this data set we try to analyze the exercise data collected by different devices in order to classify whether the individuals are performing the exercises in the correct way or not on a provided a new set of data. There are five types of exercises divided into A,B,C,D and E, where A is the prefered way of doing the exercise while the other classes are wrong way of doing the exercise.
+
+Naive Exploration of data set
+======================
+
+The data set has 19622 observations with 160 variables. The data is collected at a 45HZ sampling rate. Some of the variables in the data sets are derived features like the Euler angles (roll, pitch and yaw)[[1](http://groupware.les.inf.puc-rio.br/public/papers/2013.Velloso.QAR-WLE.pdf)]. For the Euler angles of each of the four sensors there are derived variables for mean, variance, standard deviation, max, min, amplitude, kurtosis and skewness [[1](http://groupware.les.inf.puc-rio.br/public/papers/2013.Velloso.QAR-WLE.pdf)]. 
+
+
+Loading the training and testing and data set
+```{r}
+pml_train = read.csv('pml-training.csv')
+
+pml_test = read.csv('pml-testing.csv')
+```
+
+Most of the derived variables are calculated in derived sliding windows of 0.5 to 2.5 secs and they contain NA’s or empty values and some “DIV/0”.  The first seven columns are like the row numbers, names, the time interval and the set repetition interval. Removing those on both the training and the test data
+
+```{r}
+
+pml_train <- pml_train[-c(1:7)]
+
+pml_test <- pml_test[-c(1:7)]
+
+pml_train <- pml_train[,!apply(is.na(pml_train), 2, any)]
+
+pml_test <- pml_test[,!apply(is.na(pml_test), 2, any)]
+
+f <- function(cn) { return ("#DIV/0!" %in% cn)}
+
+pml_train <- pml_train[,!apply(pml_train, 2, f)]
+
+pml_test <- pml_test[,!apply(pml_test, 2, f)]
+
+```
+
+Choosing a Predictive Model
+---------------------------
+The predictive models we are going to use are Predicting with Trees and RandomForest (since bagging is kind of randomForest with choosing all the parameters, instead of subset as randomForest does)
+
+ We also use K-fold cross validation to estimate the out of sample error. The number of folds for cross validation is 5. We chose a training method which gives us the lowest out of sample error.
+
+we divide the training test into pml_train_train and pml_train_test, and estimate the out of error using the pml_train_train data set. We try to predict using the pml_train_test and see if we are within the two standard deviations of the estimated out of error from pml_train_train data set.
+
+```{r}
+library(caret)
+inTraining <- createDataPartition(pml_train$classe, p = .7, list = FALSE)
+pml_train_train <- pml_train[ inTraining,]
+pml_train_test  <- pml_train[-inTraining,]
+```
+
+Applying  Predicting with Trees with 5 fold cross validation 
+------------------------------------------------------------
+
+```{r}
+
+fitControl <- trainControl( method = "cv",number = 5)
+
+
+cartFit <- train(classe ~ ., data = pml_train_train,method = "rpart",trControl = fitControl)
+
+print.train(cartFit)
+```
+
+the estimated out of sample error for CART is `r (1- cartFit$result[1,2])`
+
+Applying Random Forest with 5 fold cross validation 
+---------------------------------------------------
+
+```{r}
+
+fitControl <- trainControl( method = "cv",number = 5)
+
+
+rFfit <- train(classe ~ ., data = pml_train_train,method = "rf",trControl = fitControl,allowParallel = TRUE)
+
+rFfit
+
+rFfit$finalModel
+```
+
+the estimated out of sample error for RandomForest is `r (1- rFfit$result[1,2])`
+
+Since the estimated sample error for RandomForest is the smallest, we will use the RandomForest to predict the class of exercise
+
+we try to see how well did we do on our train_test data set.
+
+```{r}
+
+p_train_test <- predict(rFfit$finalModel, newdata=pml_train_test)
+
+confusionMatrix(p_train_test,pml_train_test$classe)
+
+```
+
+the overall accuracy on a new unseen sample data is `r confusionMatrix(predict(rFfit$finalModel, newdata=pml_train_test),pml_train_test$classe)$overall[1]` which is pretty good.
+
+Predicting on testing data using RandomForest fit
+-------------------------------------------------
+
+```{r}
+
+v <- predict(rFfit$finalModel, newdata=pml_test)
+
+v
+```
+
+Generating the files for the out come of the above 20 test data
+
+```{r}
+pml_write_files = function(x){
+  n = length(x)
+  for(i in 1:n){
+    filename = paste0("problem_id_",i,".txt")
+    write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+  }
+}
+
+pml_write_files(v)
+```
+
+
+References
+==========
+1. [http://groupware.les.inf.puc-rio.br/public/papers/2013.Velloso.QAR-WLE.pdf](http://groupware.les.inf.puc-rio.br/public/papers/2013.Velloso.QAR-WLE.pdf)
+2. [http://groupware.les.inf.puc-rio.br/har](http://groupware.les.inf.puc-rio.br/har)
+3. [http://topepo.github.io/caret/training.html](http://topepo.github.io/caret/training.html)
+4. [Chapter 5 of ISLR book](http://www-bcf.usc.edu/~gareth/ISL/)
+5. [Chapter 8 of ISLR book](http://www-bcf.usc.edu/~gareth/ISL/)
