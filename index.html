@@ -85,7 +85,6 @@ pml_test &lt;- pml_test[,!apply(pml_test, 2, f)]</code></pre>
 <h2>Choosing a Predictive Model</h2>
 <p>The predictive models we are going to use are Predicting with Trees and RandomForest (since bagging is kind of randomForest with choosing all the parameters, instead of subset as randomForest does)</p>
 <p>We also use K-fold cross validation to estimate the out of sample error. The number of folds for cross validation is 5. We chose a training method which gives us the lowest out of sample error.</p>
-<p>we divide the training test into pml_train_train and pml_train_test, and estimate the out of error using the pml_train_train data set. We try to predict using the pml_train_test and see if we are within the two standard deviations of the estimated out of error from pml_train_train data set.</p>
 <pre class="r"><code>library(caret)</code></pre>
 <pre><code>## Loading required package: lattice
 ## Loading required package: ggplot2</code></pre>
@@ -110,18 +109,18 @@ cartFit &lt;- train(classe ~ ., data = pml_train_train,method = &quot;rpart&quot
 ## No pre-processing
 ## Resampling: Cross-Validated (5 fold) 
 ## 
-## Summary of sample sizes: 10989, 10991, 10989, 10990, 10989 
+## Summary of sample sizes: 10990, 10990, 10990, 10989, 10989 
 ## 
 ## Resampling results across tuning parameters:
 ## 
 ##   cp          Accuracy   Kappa       Accuracy SD  Kappa SD  
-##   0.03519479  0.5064403  0.35529866  0.01646133   0.02226447
-##   0.06109924  0.4180024  0.21166647  0.06675346   0.11220724
-##   0.11718035  0.3153459  0.04741914  0.04233459   0.06493893
+##   0.02644695  0.5655520  0.44775646  0.02949577   0.04665206
+##   0.04144034  0.4683117  0.29629530  0.09299781   0.15672183
+##   0.11626488  0.3161521  0.04845726  0.04352358   0.06641125
 ## 
 ## Accuracy was used to select the optimal model using  the largest value.
-## The final value used for the model was cp = 0.03519479.</code></pre>
-<p>the estimated out of sample error for CART is 0.4935597</p>
+## The final value used for the model was cp = 0.02644695.</code></pre>
+<p>the estimated sample error for CART is 0.434448</p>
 </div>
 <div id="applying-random-forest-with-5-fold-cross-validation" class="section level2">
 <h2>Applying Random Forest with 5 fold cross validation</h2>
@@ -147,31 +146,64 @@ rFfit &lt;- train(classe ~ ., data = pml_train_train,method = &quot;rf&quot;,trC
 ## Resampling results across tuning parameters:
 ## 
 ##   mtry  Accuracy   Kappa      Accuracy SD  Kappa SD   
-##    2    0.9914104  0.9891328  0.001596896  0.002019958
-##   27    0.9909737  0.9885808  0.002538443  0.003210780
-##   52    0.9831845  0.9787263  0.003424931  0.004331466
+##    2    0.9900269  0.9873835  0.002580985  0.003266898
+##   27    0.9913376  0.9890417  0.002925959  0.003703155
+##   52    0.9884987  0.9854502  0.003624704  0.004588878
 ## 
 ## Accuracy was used to select the optimal model using  the largest value.
-## The final value used for the model was mtry = 2.</code></pre>
+## The final value used for the model was mtry = 27.</code></pre>
 <pre class="r"><code>rFfit$finalModel</code></pre>
 <pre><code>## 
 ## Call:
 ##  randomForest(x = x, y = y, mtry = param$mtry, allowParallel = TRUE) 
 ##                Type of random forest: classification
 ##                      Number of trees: 500
-## No. of variables tried at each split: 2
+## No. of variables tried at each split: 27
 ## 
-##         OOB estimate of  error rate: 0.67%
+##         OOB estimate of  error rate: 0.69%
 ## Confusion matrix:
 ##      A    B    C    D    E class.error
-## A 3902    4    0    0    0 0.001024066
-## B   18 2635    5    0    0 0.008653123
-## C    0   22 2374    0    0 0.009181970
-## D    0    0   36 2215    1 0.016429840
-## E    0    0    1    5 2519 0.002376238</code></pre>
-<p>the estimated out of sample error for RandomForest is 0.0085896</p>
-<p>Since the estimated sample error for RandomForest is the smallest, we will use the RandomForest to predict the class of exercise</p>
+## A 3898    6    1    0    1 0.002048131
+## B   22 2630    6    0    0 0.010534236
+## C    0   13 2376    7    0 0.008347245
+## D    0    0   23 2227    2 0.011101243
+## E    1    2    3    8 2511 0.005544554</code></pre>
+<p>the estimated sample error for RandomForest is 0.0099731</p>
 <p>we try to see how well did we do on our train_test data set.</p>
+<pre class="r"><code>p_c_train_test &lt;- predict(cartFit, newdata=pml_train_test)
+
+confusionMatrix(p_c_train_test,pml_train_test$classe)</code></pre>
+<pre><code>## Confusion Matrix and Statistics
+## 
+##           Reference
+## Prediction    A    B    C    D    E
+##          A 1013  169   27   40   23
+##          B  173  664   45  140  259
+##          C  357  249  815  509  259
+##          D  127   57  139  275   63
+##          E    4    0    0    0  478
+## 
+## Overall Statistics
+##                                           
+##                Accuracy : 0.5514          
+##                  95% CI : (0.5386, 0.5642)
+##     No Information Rate : 0.2845          
+##     P-Value [Acc &gt; NIR] : &lt; 2.2e-16       
+##                                           
+##                   Kappa : 0.4379          
+##  Mcnemar's Test P-Value : &lt; 2.2e-16       
+## 
+## Statistics by Class:
+## 
+##                      Class: A Class: B Class: C Class: D Class: E
+## Sensitivity            0.6051   0.5830   0.7943  0.28527  0.44177
+## Specificity            0.9385   0.8700   0.7172  0.92156  0.99917
+## Pos Pred Value         0.7964   0.5183   0.3723  0.41604  0.99170
+## Neg Pred Value         0.8567   0.8968   0.9429  0.86811  0.88821
+## Prevalence             0.2845   0.1935   0.1743  0.16381  0.18386
+## Detection Rate         0.1721   0.1128   0.1385  0.04673  0.08122
+## Detection Prevalence   0.2161   0.2177   0.3720  0.11232  0.08190
+## Balanced Accuracy      0.7718   0.7265   0.7558  0.60342  0.72047</code></pre>
 <pre class="r"><code>p_train_test &lt;- predict(rFfit$finalModel, newdata=pml_train_test)
 
 confusionMatrix(p_train_test,pml_train_test$classe)</code></pre>
@@ -179,34 +211,36 @@ confusionMatrix(p_train_test,pml_train_test$classe)</code></pre>
 ## 
 ##           Reference
 ## Prediction    A    B    C    D    E
-##          A 1674    3    0    0    0
-##          B    0 1135    9    0    0
-##          C    0    1 1015   16    0
-##          D    0    0    2  945    5
-##          E    0    0    0    3 1077
+##          A 1673    5    0    0    0
+##          B    1 1131    3    0    0
+##          C    0    3 1021   13    3
+##          D    0    0    2  951    4
+##          E    0    0    0    0 1075
 ## 
 ## Overall Statistics
 ##                                          
-##                Accuracy : 0.9934         
-##                  95% CI : (0.991, 0.9953)
+##                Accuracy : 0.9942         
+##                  95% CI : (0.9919, 0.996)
 ##     No Information Rate : 0.2845         
 ##     P-Value [Acc &gt; NIR] : &lt; 2.2e-16      
 ##                                          
-##                   Kappa : 0.9916         
+##                   Kappa : 0.9927         
 ##  Mcnemar's Test P-Value : NA             
 ## 
 ## Statistics by Class:
 ## 
 ##                      Class: A Class: B Class: C Class: D Class: E
-## Sensitivity            1.0000   0.9965   0.9893   0.9803   0.9954
-## Specificity            0.9993   0.9981   0.9965   0.9986   0.9994
-## Pos Pred Value         0.9982   0.9921   0.9835   0.9926   0.9972
-## Neg Pred Value         1.0000   0.9992   0.9977   0.9961   0.9990
+## Sensitivity            0.9994   0.9930   0.9951   0.9865   0.9935
+## Specificity            0.9988   0.9992   0.9961   0.9988   1.0000
+## Pos Pred Value         0.9970   0.9965   0.9817   0.9937   1.0000
+## Neg Pred Value         0.9998   0.9983   0.9990   0.9974   0.9985
 ## Prevalence             0.2845   0.1935   0.1743   0.1638   0.1839
-## Detection Rate         0.2845   0.1929   0.1725   0.1606   0.1830
-## Detection Prevalence   0.2850   0.1944   0.1754   0.1618   0.1835
-## Balanced Accuracy      0.9996   0.9973   0.9929   0.9894   0.9974</code></pre>
-<p>the overall accuracy on a new unseen sample data is 0.993373 which is pretty good.</p>
+## Detection Rate         0.2843   0.1922   0.1735   0.1616   0.1827
+## Detection Prevalence   0.2851   0.1929   0.1767   0.1626   0.1827
+## Balanced Accuracy      0.9991   0.9961   0.9956   0.9926   0.9968</code></pre>
+<p>the out of sample error on a new unseen sample data using predict trees (CART) is 0.4485981.</p>
+<p>the out of sample error on a new unseen sample data using random forest is 0.0057774.</p>
+<p>the out of sample error for random forest is the lowest and we use random forest to predict the out come of the 20 test data.</p>
 </div>
 <div id="predicting-on-testing-data-using-randomforest-fit" class="section level2">
 <h2>Predicting on testing data using RandomForest fit</h2>

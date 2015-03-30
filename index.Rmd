@@ -45,7 +45,6 @@ The predictive models we are going to use are Predicting with Trees and RandomFo
 
  We also use K-fold cross validation to estimate the out of sample error. The number of folds for cross validation is 5. We chose a training method which gives us the lowest out of sample error.
 
-we divide the training test into pml_train_train and pml_train_test, and estimate the out of error using the pml_train_train data set. We try to predict using the pml_train_test and see if we are within the two standard deviations of the estimated out of error from pml_train_train data set.
 
 ```{r}
 library(caret)
@@ -67,7 +66,7 @@ cartFit <- train(classe ~ ., data = pml_train_train,method = "rpart",trControl =
 print.train(cartFit)
 ```
 
-the estimated out of sample error for CART is `r (1- cartFit$result[1,2])`
+the estimated sample error for CART is `r (1- cartFit$result[1,2])`
 
 Applying Random Forest with 5 fold cross validation 
 ---------------------------------------------------
@@ -84,13 +83,15 @@ rFfit
 rFfit$finalModel
 ```
 
-the estimated out of sample error for RandomForest is `r (1- rFfit$result[1,2])`
-
-Since the estimated sample error for RandomForest is the smallest, we will use the RandomForest to predict the class of exercise
+the estimated sample error for RandomForest is `r (1- rFfit$result[1,2])`
 
 we try to see how well did we do on our train_test data set.
 
 ```{r}
+
+p_c_train_test <- predict(cartFit, newdata=pml_train_test)
+
+confusionMatrix(p_c_train_test,pml_train_test$classe)
 
 p_train_test <- predict(rFfit$finalModel, newdata=pml_train_test)
 
@@ -98,7 +99,12 @@ confusionMatrix(p_train_test,pml_train_test$classe)
 
 ```
 
-the overall accuracy on a new unseen sample data is `r confusionMatrix(predict(rFfit$finalModel, newdata=pml_train_test),pml_train_test$classe)$overall[1]` which is pretty good.
+the out of sample error on a new unseen sample data using predict trees (CART) is `r 1 - (confusionMatrix(p_c_train_test,pml_train_test$classe)$overall[1])`. 
+
+the out of sample error on a new unseen sample data using random forest is `r 1 - (confusionMatrix(predict(rFfit$finalModel, newdata=pml_train_test),pml_train_test$classe)$overall[1])`. 
+
+the out of sample error for random forest is the lowest and we use random forest to predict the out come of the 20 test data.
+
 
 Predicting on testing data using RandomForest fit
 -------------------------------------------------
